@@ -67,8 +67,6 @@ message(STATUS "OpenCV found (${OpenCV_CONFIG_PATH})")
 
 # ---[ BLAS
 if(NOT APPLE)
-  set(BLAS "Atlas" CACHE STRING "Selected BLAS library")
-  set_property(CACHE BLAS PROPERTY STRINGS "Atlas;Open;MKL")
 
   if(BLAS STREQUAL "Atlas" OR BLAS STREQUAL "atlas")
     find_package(Atlas REQUIRED)
@@ -94,6 +92,10 @@ endif()
 if(BUILD_python)
   if(NOT "${python_version}" VERSION_LESS "3.0.0")
     # use python3
+    
+    # fix bug in cmake: https://bugs.launchpad.net/ubuntu/+source/cmake/+bug/1323559
+    set(Python_ADDITIONAL_VERSIONS 3.4)
+
     find_package(PythonInterp 3.0)
     find_package(PythonLibs 3.0)
     find_package(NumPy 1.7.1)
