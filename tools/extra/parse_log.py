@@ -16,14 +16,12 @@ import csv
 def get_line_type(line):
     """Return either 'test' or 'train' depending on line type
     """
-
     line_type = None
     if line.find('Train') != -1:
         line_type = 'train'
     elif line.find('Test') != -1:
         line_type = 'test'
     return line_type
-
 
 def parse_log(path_to_log):
     """Parse log file
@@ -38,18 +36,21 @@ def parse_log(path_to_log):
 
     re_iteration = re.compile('Iteration (\d+)')
     re_accuracy = re.compile('output #\d+: accuracy = ([\.\d]+)')
-    re_train_loss = re.compile('Iteration \d+, loss = ([\.\d]+)')
-    re_output_loss = re.compile('output #\d+: loss = ([\.\d]+)')
-    re_lr = re.compile('lr = ([\.\d]+)')
+    re_loss = re.compile('Iteration \d+, loss = ([\.\d]+)')
+    re_lr = re.compile('lr = ([\d]+e-[\d]+|[\.\d]+)')
 
     # Pick out lines of interest
     iteration = -1
-    test_accuracy = -1
+    current_line_iteration = -1
+    iteration_type = 'train'
+
+    accuracy = -1
     learning_rate = float('NaN')
+
     train_dict_list = []
     test_dict_list = []
-    train_dict_names = ('NumIters', 'Seconds', 'TrainingLoss', 'LearningRate')
-    test_dict_names = ('NumIters', 'Seconds', 'TestAccuracy', 'TestLoss')
+    train_dict_names = ('Iterations', 'Seconds', 'Loss', 'LearningRate')
+    test_dict_names = ('Iterations', 'Seconds', 'Loss', 'Accuracy')
 
     logfile_year = extract_seconds.get_log_created_year(path_to_log)
     with open(path_to_log) as f:
@@ -58,42 +59,54 @@ def parse_log(path_to_log):
         for line in f:
             iteration_match = re_iteration.search(line)
             if iteration_match:
-                iteration = float(iteration_match.group(1))
-            if iteration == -1:
+                current_line_iteration = int(iteration_match.group(1))
+            if current_line_iteration == -1:
                 # Only look for other stuff if we've found the first iteration
                 continue
 
-            time = extract_seconds.extract_datetime_from_line(line,
+            if(iteration < current_line_iteration):
+
+                iteration = current_line_iteration
+
+                # new iteration
+                if(iteration > 0):
+                    # log previous iteration
+                    if(iteration_type == 'train'):
+                        train_dict_list.append(iteration_dict)
+                    else:
+                        test_dict_list.append(iteration_dict)
+
+
+                time = extract_seconds.extract_datetime_from_line(line,
                                                               logfile_year)
-            seconds = (time - start_time).total_seconds()
+                seconds = (time - start_time).total_seconds()
+                iteration_dict = {'Iterations': '{:d}'.format(iteration),
+                                 'Seconds': '{:f}'.format(seconds)}
+                iteration_type = 'train'
+
+
+
+            if get_line_type(line) == 'test':
+                iteration_type = 'test'
 
             lr_match = re_lr.search(line)
             if lr_match:
-                learning_rate = float(lr_match.group(1))
+                iteration_dict['LearningRate'] = float(lr_match.group(1))
 
             accuracy_match = re_accuracy.search(line)
-            if accuracy_match and get_line_type(line) == 'test':
-                test_accuracy = float(accuracy_match.group(1))
+            if accuracy_match:
+                iteration_dict['Accuracy'] = float(accuracy_match.group(1))
 
-            train_loss_match = re_train_loss.search(line)
-            if train_loss_match:
-                train_loss = float(train_loss_match.group(1))
-                train_dict_list.append({'NumIters': iteration,
-                                        'Seconds': seconds,
-                                        'TrainingLoss': train_loss,
-                                        'LearningRate': learning_rate})
+            loss_match = re_loss.search(line)
+            if loss_match:
+                 iteration_dict['Loss'] = float(loss_match.group(1))
 
-            output_loss_match = re_output_loss.search(line)
-            if output_loss_match and get_line_type(line) == 'test':
-                test_loss = float(output_loss_match.group(1))
-                # NOTE: we assume that (1) accuracy always comes right before
-                # loss for test data so the test_accuracy variable is already
-                # correctly populated and (2) there's one and only one output
-                # named "accuracy" for the test net
-                test_dict_list.append({'NumIters': iteration,
-                                       'Seconds': seconds,
-                                       'TestAccuracy': test_accuracy,
-                                       'TestLoss': test_loss})
+
+        # log last iteration
+        if(iteration_type == 'train'):
+            train_dict_list.append(iteration_dict)
+        else:
+            test_dict_list.append(iteration_dict)
 
     return train_dict_list, train_dict_names, test_dict_list, test_dict_names
 
@@ -119,11 +132,11 @@ def write_csv(output_filename, dict_list, header_names, verbose=False):
     """
 
     with open(output_filename, 'w') as f:
-        dict_writer = csv.DictWriter(f, header_names)
+        dict_writer = csv.DictWriter(f, header_names, extrasaction='ignore')
         dict_writer.writeheader()
         dict_writer.writerows(dict_list)
     if verbose:
-        print 'Wrote %s' % output_filename
+        print('Wrote {0}'.format(output_filename))
 
 
 def parse_args():
