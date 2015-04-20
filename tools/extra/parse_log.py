@@ -66,7 +66,7 @@ def parse_log(path_to_log):
                 # Only look for other stuff if we've found the first iteration
                 continue
 
-            print("{0} {1} {2}".format(iteration_type, iteration, iteration_dict['Loss'] if iteration_dict and 'Loss' in iteration_dict else ""))
+            #print("{0} {1} {2}".format(iteration_type, iteration, iteration_dict['Loss'] if iteration_dict and 'Loss' in iteration_dict else ""))
 
             # new iteration or switching from test to train
             if(iteration < current_line_iteration or 
