@@ -35,14 +35,16 @@ def parse_log(path_to_log):
     """
 
     re_iteration = re.compile('Iteration (\d+)')
-    re_accuracy = re.compile('output #\d+: accuracy = ([\.\d]+)')
+    re_test_accuracy = re.compile('output #\d+: accuracy = ([\.\d]+)')
+    re_test_loss = re.compile('output #\d+: loss = ([\.\d]+)')
     re_loss = re.compile('Iteration \d+, loss = ([\.\d]+)')
     re_lr = re.compile('lr = ([\d]+e-[\d]+|[\.\d]+)')
 
     # Pick out lines of interest
     iteration = -1
     current_line_iteration = -1
-    iteration_type = 'train'
+    iteration_type = None
+    iteration_dict = None
 
     accuracy = -1
     learning_rate = float('NaN')
@@ -64,12 +66,16 @@ def parse_log(path_to_log):
                 # Only look for other stuff if we've found the first iteration
                 continue
 
-            if(iteration < current_line_iteration):
+            print("{0} {1} {2}".format(iteration_type, iteration, iteration_dict['Loss'] if iteration_dict and 'Loss' in iteration_dict else ""))
+
+            # new iteration or switching from test to train
+            if(iteration < current_line_iteration or 
+                (get_line_type(line) and (get_line_type(line) != iteration_type))):
 
                 iteration = current_line_iteration
 
                 # new iteration
-                if(iteration > 0):
+                if(iteration > 0 or (iteration_type and get_line_type(line) != iteration_type)):
                     # log previous iteration
                     if(iteration_type == 'train'):
                         train_dict_list.append(iteration_dict)
@@ -82,20 +88,22 @@ def parse_log(path_to_log):
                 seconds = (time - start_time).total_seconds()
                 iteration_dict = {'Iterations': '{:d}'.format(iteration),
                                  'Seconds': '{:f}'.format(seconds)}
-                iteration_type = 'train'
+
+                iteration_type = get_line_type(line) or 'train'
 
 
-
-            if get_line_type(line) == 'test':
-                iteration_type = 'test'
 
             lr_match = re_lr.search(line)
             if lr_match:
                 iteration_dict['LearningRate'] = float(lr_match.group(1))
 
-            accuracy_match = re_accuracy.search(line)
+            accuracy_match = re_test_accuracy.search(line)
             if accuracy_match:
                 iteration_dict['Accuracy'] = float(accuracy_match.group(1))
+
+            loss_test_match = re_test_loss.search(line)
+            if loss_test_match:
+                iteration_dict['Loss'] = float(loss_test_match.group(1))
 
             loss_match = re_loss.search(line)
             if loss_match:
@@ -103,9 +111,9 @@ def parse_log(path_to_log):
 
 
         # log last iteration
-        if(iteration_type == 'train'):
+        if(iteration_dict and iteration_type == 'train'):
             train_dict_list.append(iteration_dict)
-        else:
+        elif(iteration_dict):
             test_dict_list.append(iteration_dict)
 
     return train_dict_list, train_dict_names, test_dict_list, test_dict_names
