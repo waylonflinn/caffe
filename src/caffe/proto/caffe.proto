@@ -259,7 +259,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 132 (last added: prelu_param)
+// LayerParameter next available layer-specific ID: 133 (last added: EuclideanAccuracyParameter)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -311,6 +311,7 @@ message LayerParameter {
   optional DropoutParameter dropout_param = 108;
   optional DummyDataParameter dummy_data_param = 109;
   optional EltwiseParameter eltwise_param = 110;
+  optional EuclideanAccuracyParameter euclidean_accuracy_param = 132;
   optional ExpParameter exp_param = 111;
   optional HDF5DataParameter hdf5_data_param = 112;
   optional HDF5OutputParameter hdf5_output_param = 113;
@@ -360,6 +361,13 @@ message LossParameter {
   // If true, normalize each batch across all instances (including spatial
   // dimesions, but not ignored instances); else, divide by batch size only.
   optional bool normalize = 2 [default = true];
+}
+
+// Message that stores parameters used by EuclideanAccuracyLayer
+message EuclideanAccuracyParameter {
+
+  // If specified, ignore instances with the given label.
+  optional int32 ignore_label = 1;
 }
 
 // Message that stores parameters used by AccuracyLayer
@@ -790,6 +798,7 @@ message V1LayerParameter {
     DUMMY_DATA = 32;
     EUCLIDEAN_LOSS = 7;
     ELTWISE = 25;
+    EUCLIDEAN_ACCURACY = 43;
     EXP = 38;
     FLATTEN = 8;
     HDF5_DATA = 9;
